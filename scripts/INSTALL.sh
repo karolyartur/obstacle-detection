@@ -13,6 +13,8 @@ sudo apt-get install -y git-lfs
 git lfs install
 
 # Pulling large file
+echo "Pulling model file"
+git lfs fetch
 git lfs pull
 
 # Set permissions
