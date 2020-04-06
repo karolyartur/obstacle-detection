@@ -13,7 +13,10 @@ sudo apt-get install -y git-lfs
 git lfs install
 
 # Pulling large file
-git pull
+git lfs pull
+
+# Set permissions
+sudo chown -R $USER .git/
 echo "Repository configured"
 
 # Install python and pip
@@ -28,6 +31,7 @@ sudo apt-get install -y python3-venv
 sudo mkdir ../environments
 cd ../environments
 python3 -m venv obstacle_detection
+sudo chown -R $USER obstacle_detection
 source obstacle_detection/bin/activate
 cd ../obstacle-detection
 pip install -r requirements.txt
