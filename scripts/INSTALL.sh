@@ -29,6 +29,6 @@ sudo mkdir ../environments
 cd ../environments
 python3 -m venv obstacle_detection
 source obstacle_detection/bin/activate
-cd ../obstacle_detection
+cd ../obstacle-detection
 pip install -r requirements.txt
 echo "Installation complete"
