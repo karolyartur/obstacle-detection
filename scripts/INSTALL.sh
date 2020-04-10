@@ -1,6 +1,7 @@
 #!/bin/bash
 
-[ "$UID" -eq 0 ] || exec sudo bash "$0" "$@"
+curr_user=$(whoami)
+#[ "$UID" -eq 0 ] || exec sudo bash "$0" "$@"0
 
 # Install git
 sudo apt-get update
@@ -18,7 +19,7 @@ git lfs fetch
 git lfs pull
 
 # Set permissions
-sudo chown -R $USER .git/
+#sudo chown -R $curr_user .git/
 echo "Repository configured"
 
 # Install python and pip
@@ -30,11 +31,12 @@ sudo apt-get install -y build-essential libssl-dev libffi-dev python-dev
 sudo apt-get install -y python3-venv
 
 # Create virtualenv and install pip packages
-sudo mkdir ../environments
+mkdir ../environments
 cd ../environments
 python3 -m venv obstacle_detection
-sudo chown -R $USER obstacle_detection
+#sudo chown -R $curr_user obstacle_detection
 source obstacle_detection/bin/activate
 cd ../obstacle-detection
+pip install wheel
 pip install -r requirements.txt
 echo "Installation complete"
