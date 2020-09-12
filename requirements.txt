@@ -13,3 +13,7 @@ tensorboard==1.6.0
 tensorflow==1.6.0
 termcolor==1.1.0
 Werkzeug==1.0.0
+pyrealsense2==2.33.1.1388
+pptk==0.1.0 
+matplotlib==3.0.3
+
