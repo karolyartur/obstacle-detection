@@ -247,16 +247,22 @@ def velocity_from_point_clouds(deprojected_coordinates, T_cam_tcp, T_tcp_cam, ro
             velocities[i,j,:] = homegenous_velocities[:,0:3]
     return velocities
 
-def velocity_from_point_clouds_online(deprojected_coordinates, T_cam_tcp, T_tcp_cam, T_base_tcp_1, T_tcp_base_2, robot_dt):
-    h, w = deprojected_coordinates.shape[:2]
+
+
+def velocity_from_point_clouds_robot_frame(deprojected_coordinates_robot, \
+                                        v_robot, omega_robot):
+    if (v_robot.shape[0] != 3 or omega_robot.shape[0] != 3):
+         raise Exception("v_robot and omega_robot is not passed as numpy column vector! v_robot.shape: {}, omega_robot.shape: {}".format(v_robot.shape, omega_robot.shape))
+
+    h, w = deprojected_coordinates_robot.shape[:2]
     velocities = np.empty((h, w, 3))
-    T_2_1 = T_cam_tcp.dot(T_tcp_base_2).dot(T_base_tcp_1).dot(T_tcp_cam)
+
     for i in range(h):
         for j in range(w):
-            homegenous_coords_1 = np.append(np.asmatrix(deprojected_coordinates[i,j,:]), np.matrix('1'), axis = 1).transpose()
-            homegenous_coords_2 = T_2_1.dot(homegenous_coords_1)
-            homegenous_velocities = np.asarray(((homegenous_coords_2 - homegenous_coords_1) / robot_dt).flatten())
-            velocities[i,j,:] = homegenous_velocities[:,0:3]
+            tangential_velocity = np.cross((-1.0 * omega_robot),\
+                                            np.asmatrix(deprojected_coordinates_robot[i,j,:]).transpose(), axis=0)
+
+            velocities[i,j,:] = np.asarray((tangential_velocity - v_robot).flatten())
     return velocities
     
 
@@ -390,7 +396,6 @@ def deproject(aligned_depth_frame, step=16):
     depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
     h, w = depth_image.shape[:2]
     deprojected_coordinates = np.empty((h//step, w//step, 3))
-
     for i in range(h//step):
         for j in range(w//step):
             depth = aligned_depth_frame.get_distance(i,j)
@@ -466,22 +471,132 @@ def show_pointcloud(v, deproject_flow_new_flat, three_d_flow_x):
 
 
 
+def transform_velocites(diff_flow, T):
+
+    h, w = diff_flow.shape[:2]
+    velocities_transformed = np.empty((h, w, 3))
+
+    for i in range(h):
+        for j in range(w):
+            homegenous_velocities = np.append(np.asmatrix(diff_flow[i,j,:]), \
+                                            np.matrix('0'), axis = 1).transpose()
+            homegenous_velocities_transformed = T.dot(homegenous_velocities)
+            velocities_transformed[i,j,:] = np.asarray((homegenous_velocities_transformed[0:3]).flatten())
+    return velocities_transformed
+
+def transform_points(deprojected_coordinates, T):
+    h, w = deprojected_coordinates.shape[:2]
+    points_transformed = np.empty((h, w, 3))
+
+    for i in range(h):
+        for j in range(w):
+            if (np.max(np.abs(deprojected_coordinates[i,j,:])) > 0.000001):
+                homegenous_points = np.append(np.asmatrix(deprojected_coordinates[i,j,:]), \
+                                            np.matrix('1'), axis = 1).transpose()
+                homegenous_points_transformed = T.dot(homegenous_points)
+                points_transformed[i,j,:] = np.asarray((homegenous_points_transformed[0:3]).flatten())
+            else:
+                points_transformed[i,j,:] = deprojected_coordinates[i,j,:]
+    return points_transformed
 
 
+def get_3D_bounding_box(deprojected_coordinates_robot, mask):
+
+    bb = {'x1': math.inf, 'y1': math.inf, 'z1': math.inf,\
+          'x2': -math.inf, 'y2': -math.inf, 'z2': -math.inf}
+
+    h, w = deprojected_coordinates_robot.shape[:2]
+    for i in range(h):
+        for j in range(w):
+            #print(mask[i,j])
+            if (mask[i,j] > 0 and deprojected_coordinates_robot[i,j,2] != 0):
+                if (deprojected_coordinates_robot[i,j,0] < bb.get('x1')):
+                    bb['x1'] = deprojected_coordinates_robot[i,j,0]
+                    #print("x1:\t{}".format(deprojected_coordinates_robot[i,j,0]))
+                if (deprojected_coordinates_robot[i,j,1] < bb.get('y1')):
+                    bb['y1'] = deprojected_coordinates_robot[i,j,1]
+                    #print("y1:\t{}".format(deprojected_coordinates_robot[i,j,1]))
+                if (deprojected_coordinates_robot[i,j,2] < bb.get('z1')):
+                    bb['z1'] = deprojected_coordinates_robot[i,j,2]
+                    #print("z1:\t{}".format(deprojected_coordinates_robot[i,j,2]))
+                if (deprojected_coordinates_robot[i,j,0] > bb.get('x2')):
+                    bb['x2'] = deprojected_coordinates_robot[i,j,0]
+                    #print("x2:\t{}".format(deprojected_coordinates_robot[i,j,0]))
+                if (deprojected_coordinates_robot[i,j,1] > bb.get('y2')):
+                    bb['y2'] = deprojected_coordinates_robot[i,j,1]
+                    #print("y2:\t{}".format(deprojected_coordinates_robot[i,j,1]))
+                if (deprojected_coordinates_robot[i,j,2] > bb.get('z2')):
+                    bb['z2'] = deprojected_coordinates_robot[i,j,2]
+                    #print("z2:\t{}".format(deprojected_coordinates_robot[i,j,2]))
+
+    return bb
 
 
+def find_largest_blob(mask):
 
 
+    # Find largest contour in intermediate image
+    cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if cnts:
+        cnt = max(cnts, key=cv2.contourArea)
+    else:
+        print("No blob found")
+        return np.zeros(mask.shape, np.uint8)
+
+    # Output
+    out = np.zeros(mask.shape, np.uint8)
+    cv2.drawContours(out, [cnt], -1, 255, cv2.FILLED)
+    out = cv2.bitwise_and(mask, out)
+    return out
 
 
+def avg_coords(deprojected_coordinates_robot, mask):
+    h, w = deprojected_coordinates_robot.shape[:2]
+    mask_deprojected_x=[]
+    mask_deprojected_y=[]
+    mask_deprojected_z=[]
+    
+    for i in range(h):
+        for j in range(w):
+            if (mask[i,j] > 0):
+                mask_deprojected_x.append(deprojected_coordinates_robot[i,j,0])
+                mask_deprojected_y.append(deprojected_coordinates_robot[i,j,1])
+                mask_deprojected_z.append(deprojected_coordinates_robot[i,j,2])
+                
+    mean_x = np.mean(mask_deprojected_x)
+    mean_y = np.mean(mask_deprojected_y)
+    mean_z = np.mean(mask_deprojected_z)
+    
+    blob_mean_coords = np.array([mean_x, mean_y, mean_z])
+    print("Blob center coordinates:", blob_mean_coords)
+    return blob_mean_coords
 
 
-
-
-
-
-
-
+def max_blob_width(deprojected_coordinates_robot, mask):
+    h, w = deprojected_coordinates_robot.shape[:2]
+    rows_nonzero = np.count_nonzero(mask, axis=0)
+    print(rows_nonzero)
+    max_row_nonzero = np.max(rows_nonzero)
+    max_row_indices = [i for i, j in enumerate(rows_nonzero) if j == max_row_nonzero]
+    print(max_row_nonzero)
+    print(max_row_indices)
+    
+    deprojected_coordinates_robot_blob_width = deprojected_coordinates_robot[max_row_indices[0],:,:]
+    blob_width_coords_x = []
+    blob_width_coords_y = []
+    blob_width_coords_z = []
+    width_x = 0.0
+    #print(len(deprojected_coordinates_robot_blob_width))
+    #for i in range(len(deprojected_coordinates_robot_blob_width)):
+    for j in range(w):
+        if (mask[max_row_indices[0],j] > 0 and deprojected_coordinates_robot[max_row_indices[0],j,2] != 0):
+            blob_width_coords_x.append(deprojected_coordinates_robot[max_row_indices[0],j,0])
+            blob_width_coords_y.append(deprojected_coordinates_robot[max_row_indices[0],j,1])
+            blob_width_coords_z.append(deprojected_coordinates_robot[max_row_indices[0],j,2])
+    if (blob_width_coords_x):
+        width_x = abs(blob_width_coords_x[-1] - blob_width_coords_x[0])
+        print("blob width:", width_x)
+    return width_x
 
 
 
