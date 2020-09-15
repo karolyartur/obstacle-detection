@@ -181,7 +181,7 @@ def get_lines(img, flow, step=16):
 def deproject_flow_prev(aligned_depth_frame, lines, step=16):
     depth_image = np.asanyarray(aligned_depth_frame.get_data())
     depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
-    print(depth_intrin)
+    #print(depth_intrin)
     h, w = depth_image.shape[:2]
     deprojected_coordinates = np.empty((h//step, w//step, 3))
     x_index_change = lines[:,:,0]
@@ -221,6 +221,14 @@ def deproject_flow_new(aligned_depth_frame, lines, step=16):
         for j in range(w//step):
             x_index_new = x_index_change[i,j,1]
             y_index_new = y_index_change[i,j,1]
+            if (x_index_new < 0):
+                x_index_new = 0
+            if (y_index_new < 0):
+                y_index_new = 0
+            if (y_index_new >= h):
+                y_index_new = h-1
+            if (x_index_new >= w):
+                x_index_new = w-1
             depth = aligned_depth_frame.get_distance(x_index_new, y_index_new)
             depth_point_in_camera_coords = np.array(rs.rs2_deproject_pixel_to_point(depth_intrin, [x_index_new, y_index_new], depth))
             deprojected_coordinates[i, j] = depth_point_in_camera_coords
@@ -231,6 +239,18 @@ def velocity_from_point_clouds(deprojected_coordinates, T_cam_tcp, T_tcp_cam, ro
     h, w = deprojected_coordinates.shape[:2]
     velocities = np.empty((h, w, 3))
     T_2_1 = T_cam_tcp.dot(robot_state_2.T_tcp_base).dot(robot_state_1.T_base_tcp).dot(T_tcp_cam)
+    for i in range(h):
+        for j in range(w):
+            homegenous_coords_1 = np.append(np.asmatrix(deprojected_coordinates[i,j,:]), np.matrix('1'), axis = 1).transpose()
+            homegenous_coords_2 = T_2_1.dot(homegenous_coords_1)
+            homegenous_velocities = np.asarray(((homegenous_coords_2 - homegenous_coords_1) / robot_dt).flatten())
+            velocities[i,j,:] = homegenous_velocities[:,0:3]
+    return velocities
+
+def velocity_from_point_clouds_online(deprojected_coordinates, T_cam_tcp, T_tcp_cam, T_base_tcp_1, T_tcp_base_2, robot_dt):
+    h, w = deprojected_coordinates.shape[:2]
+    velocities = np.empty((h, w, 3))
+    T_2_1 = T_cam_tcp.dot(T_tcp_base_2).dot(T_base_tcp_1).dot(T_tcp_cam)
     for i in range(h):
         for j in range(w):
             homegenous_coords_1 = np.append(np.asmatrix(deprojected_coordinates[i,j,:]), np.matrix('1'), axis = 1).transpose()
@@ -420,23 +440,15 @@ def calc_mean_velocity(egomotion_filtered_flow):
 
 
 
+
 def calc_mean_depth(egomotion_filtered_flow, deproject_flow_new):
     h, w = egomotion_filtered_flow.shape[:2]
     depth_z=[]
     for i in range(h):
         for j in range(w):
-             depth_z.append(deproject_flow_new[i,j,2])
-
-    depth_mean_z = np.mean(depth_z,0)
-    depth_std_z = np.std(depth_z,0)
-    return depth_mean_z, depth_std_z
-
-def calc_mean_depth_mask(egomotion_filtered_flow, deproject_flow_new, ball_mask, step):
-    h, w = egomotion_filtered_flow.shape[:2]
-    depth_z=[]
-    for i in range(h):
-        for j in range(w):
-            if (ball_mask[i*step + step//2,j*step + step//2] > 0):
+            if (egomotion_filtered_flow[i,j,0]!=0 and\
+              egomotion_filtered_flow[i,j,1]!=0 and\
+              egomotion_filtered_flow[i,j,2]!=0):
                 depth_z.append(deproject_flow_new[i,j,2])
 
     depth_mean_z = np.mean(depth_z,0)

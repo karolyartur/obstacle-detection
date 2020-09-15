@@ -78,9 +78,7 @@ def read_robot_states(filename):
     return robot_states
 
 def get_velocity(robot_state, robot_state_prev):
-    robot_dt = (robot_state.timestamp - \
-                    robot_state_prev.timestamp) / (30.0) #WHY?
-
+    robot_dt = get_dt(robot_state, robot_state_prev)
     velocity_robot = [(robot_state.x - robot_state_prev.x) / robot_dt,
                       (robot_state.y - robot_state_prev.y) / robot_dt,
                       (robot_state.z - robot_state_prev.z) / robot_dt]
@@ -88,8 +86,7 @@ def get_velocity(robot_state, robot_state_prev):
     return velocity_robot
 
 def get_dt(robot_state, robot_state_prev):
-    robot_dt = (robot_state.timestamp - \
-                    robot_state_prev.timestamp) / (30.0) #WHY?
+    robot_dt = (robot_state.timestamp - robot_state_prev.timestamp) / 1000.0
     return robot_dt
     
 #robot_states = read_robot_states("robot_states.txt") 
