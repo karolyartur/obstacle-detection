@@ -13,7 +13,7 @@ import read_robot_states as robot_states
 import numpy as np
 import math
 from timeit import default_timer as time
-
+import realsense_intrinsics_module as intr
 
 ## 
 #  @brief Convert RGB images to color images
@@ -572,7 +572,7 @@ def avg_coords(deprojected_coordinates_robot, mask):
     return blob_mean_coords
 
 
-def max_blob_width(deprojected_coordinates_robot, mask):
+def max_blob_width(deprojected_coordinates_robot, mask, aligned_depth_frame, blob_mean_coords, step = 16):
     h, w = deprojected_coordinates_robot.shape[:2]
     rows_nonzero = np.count_nonzero(mask, axis=0)
     print(rows_nonzero)
@@ -596,6 +596,16 @@ def max_blob_width(deprojected_coordinates_robot, mask):
     if (blob_width_coords_x):
         width_x = abs(blob_width_coords_x[-1] - blob_width_coords_x[0])
         print("blob width:", width_x)
+        
+    object_size_in_image = len(deprojected_coordinates_robot_blob_width)
+    object_distance_from_camera = blob_mean_coords[2]
+    depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
+    fx = intr.get_fx(depth_intrin)
+    # object size in image = Object size * focal length / object distance from camera
+    
+    object_estimated_width = (object_size_in_image * object_distance_from_camera) / fx
+    
+    print(object_estimated_width * step)
     return width_x
 
 

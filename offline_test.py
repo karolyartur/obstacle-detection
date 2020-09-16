@@ -19,6 +19,7 @@ import numpy as np
 import cv2 as cv
 import network
 import utils
+import math
 
 # Make an instance of the network
 net = network.Network()
@@ -324,6 +325,30 @@ try:
 
         #######################################################
 
+        # Bounding box
+
+        mask_small_blob = mask_small.astype(np.uint8)
+        mask_small_blob = emf.find_largest_blob(mask_small_blob)
+        utils.visualize_flow(np.array(cv.resize(mask_small_blob, (299,299)), dtype=np.float32), name='mask_small_blob')
+        blob_max = mask_small_blob.reshape((mask_small_blob.shape[0]*mask_small_blob.shape[1])).max(axis=0)
+
+        if (blob_max > 0):
+            bh, bw, bd = deprojected.shape
+            deprojected_coordinates_robot_small=deprojected[:,int((bw-bh)/2):int((bw+bh)/2),:]
+            bb = emf.get_3D_bounding_box(deprojected_coordinates_robot_small, mask_small_blob)
+            # Width estimation
+            blob_avg_coords = emf.avg_coords(deprojected_coordinates_robot_small, mask_small_blob)
+            blob_width = emf.max_blob_width(deprojected_coordinates_robot_small, mask_small_blob, depth_frame_aligned, blob_avg_coords, step = step)
+            # Width estimation end
+            print("Bounding box:\n({}\t{}\t{})\n({}\t{}\t{})".format( \
+                        bb.get('x1'), bb.get('y1'), bb.get('z1'), \
+                        bb.get('x2'), bb.get('y2'), bb.get('z2')))
+        else:
+            bb = {'x1': math.nan, 'y1': math.nan, 'z1': math.nan,\
+                  'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
+                      
+
+        #######################################################
 
         # Calculate props of the moving object
         eh, ew, ed = egomotion_filtered_flow.shape
