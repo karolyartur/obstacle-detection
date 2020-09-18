@@ -20,6 +20,17 @@ import cv2 as cv
 import network
 import utils
 import math
+from time import sleep
+import zmq
+
+
+
+# ZMQ init
+context = zmq.Context()
+socket = context.socket(zmq.REP)
+print('Binding to port 5555')
+socket.bind("tcp://*:5555")
+sleep(0.033)
 
 # Make an instance of the network
 net = network.Network()
@@ -81,6 +92,8 @@ maxRadius=65 #65 #75
 radiusOffset=8
 speed_source = SpeedSource.ROBOT
 
+# ZMQ switch
+is_zmq = True
 
 if speed_source == SpeedSource.CONST:
     print("\nSpeed source CONST\n")
@@ -339,6 +352,7 @@ try:
             # Width estimation
             blob_avg_coords = emf.avg_coords(deprojected_coordinates_robot_small, mask_small_blob)
             blob_width = emf.max_blob_width(deprojected_coordinates_robot_small, mask_small_blob, depth_frame_aligned, blob_avg_coords, step = step)
+            blob_send = np.array([blob_avg_coords, blob_width])
             # Width estimation end
             print("Bounding box:\n({}\t{}\t{})\n({}\t{}\t{})".format( \
                         bb.get('x1'), bb.get('y1'), bb.get('z1'), \
@@ -348,6 +362,15 @@ try:
                   'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
                       
 
+        #######################################################
+        
+        # ZMQ send object center and size
+        
+        if is_zmq:
+            message = socket.recv_string()
+            if message == "read":
+                socket.send_pyobj(blob_width)
+        
         #######################################################
 
         # Calculate props of the moving object
