@@ -27,7 +27,7 @@ import zmq
 
 # ZMQ init
 context = zmq.Context()
-socket = context.socket(zmq.REP)
+socket = context.socket(zmq.PUB)
 print('Binding to port 5555')
 socket.bind("tcp://*:5555")
 sleep(0.033)
@@ -367,9 +367,9 @@ try:
         # ZMQ send object center and size
         
         if is_zmq:
-            message = socket.recv_string()
-            if message == "read":
-                socket.send_pyobj(blob_width)
+            #message = socket.recv_string()
+            #if message == "read":
+            socket.send_pyobj(blob_send)
         
         #######################################################
 
