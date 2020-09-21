@@ -66,6 +66,7 @@ def get_cap(video_filename):
 def visualize_flow(gray, flow=None, name='mask'):
     cv.imshow(name, gray)
     global show_hsv
+    show_hsv = False
     if show_hsv:
         cv.imshow('flow HSV', draw_hsv(flow))
     ch = cv.waitKey(5)

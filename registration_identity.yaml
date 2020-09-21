@@ -1,0 +1,4 @@
+# dummy registration file
+
+R_cam_robot: 1 0 0; 0 1 0; 0 0 1
+t_cam_robot: 0; 0; 0

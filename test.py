@@ -33,6 +33,8 @@ def run_test():
         prevgray = gray
         conc_img = utils.form_network_input(gray, flow)
 
+        print("Conc img shape: {}\n".format(conc_img.shape))
+
         # Make predictions with the network
         prediction,mask = net.predict(conc_img)
 
