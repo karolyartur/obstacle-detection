@@ -30,6 +30,23 @@ def start_sr300(config, pipeline, width_sr300, height_sr300, framerate_sr300, fi
 
     return profile_2
 
+def start_sr300_2(config, pipeline, width_sr300, height_sr300, framerate_sr300, filename):
+    # Get the camera data from a bag file
+    rs.config.enable_device_from_file(config, filename)
+
+    # Enable stream
+    config.enable_stream(rs.stream.depth, width_sr300, height_sr300, rs.format.z16, framerate_sr300)
+    config.enable_stream(rs.stream.color, width_sr300, height_sr300, rs.format.bgr8, framerate_sr300)
+
+    # Start pipeline
+    profile_2=pipeline.start(config)
+
+    # Playback from bag
+    playback_2 = profile_2.get_device().as_playback()
+    playback_2.set_real_time(False)
+
+    return profile_2
+
 def start_t265(config, pipeline, filename):
 
     # Get the camera data from a bag file
