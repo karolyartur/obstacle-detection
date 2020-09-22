@@ -6,15 +6,12 @@ import realsense_input_module as ri
 import realsense_intrinsics_module as intr
 import egomotion_filter_module as emf
 import matplotlib.pyplot as plt
-import read_robot_states
 import time
 import sys
-import pptk
 import ur_tests_module as tests
 from mpl_toolkits import mplot3d
 from numpy.polynomial.polynomial import polyfit
 from enum import Enum
-import ur_rotation_module as urrot
 import numpy as np
 import cv2 as cv
 import network
@@ -31,7 +28,16 @@ from time import sleep
 
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
+use_zmq_data = True
 socket.connect("tcp://localhost:1111")
+socket.subscribe(b'd\x02\x00\x03')
+try:
+    print(socket.recv(zmq.NOBLOCK))
+    socket.recv()
+    print('Received data from ZMQ')
+except:
+    use_zmq_data = False
+    print('\nUnable to get data from ZMQ!')
 
 ###########################################################
 
@@ -49,9 +55,6 @@ def run_obstacle_detection(registration_file):
 
     # Make an instance of the network
     net = network.Network()
-
-
-    # Point cloud visualization:  https://github.com/heremaps/pptk
 
     class SpeedSource(Enum):
         CONST = 1
@@ -86,15 +89,6 @@ def run_obstacle_detection(registration_file):
     # Algorithm settings
     step = 16
     threshold = 0.001
-
-    speed_source = SpeedSource.ROBOT
-
-
-    if speed_source == SpeedSource.CONST:
-        print("\nSpeed source CONST\n")
-    elif speed_source == SpeedSource.ROBOT:
-        print("\nSpeed source ROBOT\n")
-
 
     # Get config for the stream
     config_1 = ri.get_config()
@@ -136,9 +130,6 @@ def run_obstacle_detection(registration_file):
         deproject_flow_prev = emf.deproject(depth_frame_prev_aligned, step=step)
         #deprojected_prev = emf.deproject(depth_frame_prev_aligned, 0, 479)
 
-        # Visualize point cloud
-        v = pptk.viewer(deproject_flow_prev)
-        v.color_map('cool')
         #######################################################
 
         while True:
@@ -148,6 +139,7 @@ def run_obstacle_detection(registration_file):
             depth_frame = ri.get_depth_frames(frames_sr300)
             color_frame = ri.get_color_frames(frames_sr300)
             if not depth_frame or not color_frame:
+                print('Did not recieve frames')
                 continue
 
             # Read images
@@ -191,17 +183,18 @@ def run_obstacle_detection(registration_file):
 
             #######################################################
 
-            socket.subscribe(b'd\x02\x00\x03')
-            if socket.recv() == True:
-                speed_source == SpeedSource.ROBOT
+            
+            if use_zmq_data == True:
+                speed_source = SpeedSource.ROBOT
             else:
-                speed_source == SpeedSource.CONST
+                speed_source = SpeedSource.CONST                
 
             if speed_source == SpeedSource.CONST:
+                print("\nSpeed source CONST\n")
                 v_robot = v_robot_const
                 omega_robot = omega_robot_const
             elif speed_source == SpeedSource.ROBOT:
-                #topic = socket.recv()
+                print("\nSpeed source ROBOT\n")
                 array_buffer = socket.recv()
                 data_bytearray = bytearray(array_buffer)
                 msg = Msg.Msg.GetRootAsMsg(array_buffer,0)
@@ -213,10 +206,7 @@ def run_obstacle_detection(registration_file):
                 v_sensorfusion = msg_as_np[3]
                 omega_sensorfusion = msg_as_np[4]
     
-                v_vehicle_0 = math.cos(phi_sensorfusion)*v_sensorfusion
-                v_vehicle_1 = math.sin(phi_sensorfusion)*v_sensorfusion
-    
-                v_robot = np.matrix([[v_vehicle_0],  [v_vehicle_1] , [0]])
+                v_robot = np.matrix([[v_sensorfusion],  [0] , [0]])
                 omega_robot = np.matrix([[0],  [0] , [omega_sensorfusion]])
 
                 print(v_robot)
@@ -227,7 +217,7 @@ def run_obstacle_detection(registration_file):
                 emf.velocity_from_point_clouds_robot_frame(deprojected_coordinates_robot, \
                                             v_robot, omega_robot)
 
-
+            threshold = abs(v_robot[0][0])*0.001
             # Compare the velocities
             egomotion_filtered_flow = \
                 emf.velocity_comparison(depth_frame_aligned, \
@@ -306,11 +296,6 @@ def run_obstacle_detection(registration_file):
                 bb = {'x1': math.nan, 'y1': math.nan, 'z1': math.nan,\
                       'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
                 blob_send = [0, 0, 0, 0]  
-            
-
-
-            # Display point cloud
-            emf.show_pointcloud(v, deproject_flow_flat, three_d_flow_x)
 
             # Calculate props of the moving object
             eh, ew, ed = egomotion_filtered_flow.shape

@@ -31,7 +31,7 @@ while True:
     v_vehicle_sensorfusion = np.matrix([[v_vehicle_0],  [v_vehicle_1] , [0]])
     omega_vehicle_sensorfusion = np.matrix([[0],  [0] , [omega_sensorfusion]])
 
-    print(omega_vehicle_sensorfusion)
+    print(v_vehicle_sensorfusion, omega_vehicle_sensorfusion)
     
     
     

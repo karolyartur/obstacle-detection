@@ -4,11 +4,9 @@ import cv2
 import realsense_input_module as ri
 import egomotion_filter_module as emf
 import matplotlib.pyplot as plt
-import read_robot_states
 import time
 import sys
 import pptk
-import read_robot_states
 
 
 

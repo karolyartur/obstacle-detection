@@ -9,7 +9,6 @@
 import pyrealsense2 as rs
 import numpy as np
 import cv2
-import read_robot_states as robot_states
 import numpy as np
 import math
 from timeit import default_timer as time
@@ -259,10 +258,13 @@ def velocity_from_point_clouds_robot_frame(deprojected_coordinates_robot, \
 
     for i in range(h):
         for j in range(w):
-            tangential_velocity = np.cross((-1.0 * omega_robot),\
-                                            np.asmatrix(deprojected_coordinates_robot[i,j,:]).transpose(), axis=0)
+            if np.isnan(deprojected_coordinates_robot[i,j,0]):
+                velocities[i,j,:] = np.array([None, None, None])
+            else:
+                tangential_velocity = np.cross((-1.0 * omega_robot),\
+                                                np.asmatrix(deprojected_coordinates_robot[i,j,:]).transpose(), axis=0)
 
-            velocities[i,j,:] = np.asarray((tangential_velocity - v_robot).flatten())
+                velocities[i,j,:] = np.asarray((tangential_velocity - v_robot).flatten())
     return velocities
     
 
@@ -289,10 +291,14 @@ def velocity_comparison(aligned_depth_frame, diff_flow, velocities_from_egomotio
     for i in range(h//step):
         for j in range(w//step):
             #print("diff_flow:\t{}\t\tvelocity:\t{}".format(diff_flow[i,j,:],velocities_from_egomotion[i,j,:]))
-
-            diff_flow_rel[i,j,0] = -(diff_flow[i,j,0] - velocities_from_egomotion[i,j,0])
-            diff_flow_rel[i,j,1] = -(diff_flow[i,j,1] - velocities_from_egomotion[i,j,1])
-            diff_flow_rel[i,j,2] = -(diff_flow[i,j,2] - velocities_from_egomotion[i,j,2])
+            if np.isnan(diff_flow[i,j,0]) or np.isnan(velocities_from_egomotion[i,j,0]):
+                diff_flow_rel[i,j,0] = 0
+                diff_flow_rel[i,j,1] = 0
+                diff_flow_rel[i,j,2] = 0
+            else:
+                diff_flow_rel[i,j,0] = -(diff_flow[i,j,0] - velocities_from_egomotion[i,j,0])
+                diff_flow_rel[i,j,1] = -(diff_flow[i,j,1] - velocities_from_egomotion[i,j,1])
+                diff_flow_rel[i,j,2] = -(diff_flow[i,j,2] - velocities_from_egomotion[i,j,2])
 
             if (abs(diff_flow_rel[i,j,0]) > threshold or abs(diff_flow_rel[i,j,1]) > threshold or abs(diff_flow_rel[i,j,2]) > threshold):
                 egomotion_filtered_flow[i,j] = diff_flow_rel[i,j]
@@ -345,7 +351,7 @@ def flow_3d(deproject_flow_new, deproject_flow, dt):
     for i in range(h):
         for j in range(w):
             if deproject_flow_new[i,j,2] == 0 or deproject_flow[i,j,2] == 0 :
-                flow_3d[i,j] = 0
+                flow_3d[i,j] = np.array([None, None, None])
             else :
                 flow_3d[i,j] = (deproject_flow_new[i,j] - deproject_flow[i,j]) / dt
     
@@ -478,10 +484,13 @@ def transform_velocites(diff_flow, T):
 
     for i in range(h):
         for j in range(w):
-            homegenous_velocities = np.append(np.asmatrix(diff_flow[i,j,:]), \
-                                            np.matrix('0'), axis = 1).transpose()
-            homegenous_velocities_transformed = T.dot(homegenous_velocities)
-            velocities_transformed[i,j,:] = np.asarray((homegenous_velocities_transformed[0:3]).flatten())
+            if np.isnan(diff_flow[i,j,0]):
+                velocities_transformed[i,j,:] = np.array([None,None,None])
+            else:
+                homegenous_velocities = np.append(np.asmatrix(diff_flow[i,j,:]), \
+                                                np.matrix('0'), axis = 1).transpose()
+                homegenous_velocities_transformed = T.dot(homegenous_velocities)
+                velocities_transformed[i,j,:] = np.asarray((homegenous_velocities_transformed[0:3]).flatten())
     return velocities_transformed
 
 def transform_points(deprojected_coordinates, T):
@@ -496,7 +505,8 @@ def transform_points(deprojected_coordinates, T):
                 homegenous_points_transformed = T.dot(homegenous_points)
                 points_transformed[i,j,:] = np.asarray((homegenous_points_transformed[0:3]).flatten())
             else:
-                points_transformed[i,j,:] = deprojected_coordinates[i,j,:]
+                points_transformed[i,j,:] = np.array([None,None,None])
+
     return points_transformed
 
 
@@ -558,7 +568,7 @@ def avg_coords(deprojected_coordinates_robot, mask):
     
     for i in range(h):
         for j in range(w):
-            if (mask[i,j] > 0):
+            if (mask[i,j] > 0) and not np.isnan(deprojected_coordinates_robot[i,j,0]):
                 mask_deprojected_x.append(deprojected_coordinates_robot[i,j,0])
                 mask_deprojected_y.append(deprojected_coordinates_robot[i,j,1])
                 mask_deprojected_z.append(deprojected_coordinates_robot[i,j,2])
