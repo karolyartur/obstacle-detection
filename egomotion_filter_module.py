@@ -578,18 +578,14 @@ def avg_coords(deprojected_coordinates_robot, mask):
     mean_z = np.mean(mask_deprojected_z)
     
     blob_mean_coords = np.array([mean_x, mean_y, mean_z])
-    print("Blob center coordinates:", blob_mean_coords)
     return blob_mean_coords
 
 
 def max_blob_width(deprojected_coordinates_robot, mask, aligned_depth_frame, blob_mean_coords, step = 16):
     h, w = deprojected_coordinates_robot.shape[:2]
     rows_nonzero = np.count_nonzero(mask, axis=0)
-    print(rows_nonzero)
     max_row_nonzero = np.max(rows_nonzero)
     max_row_indices = [i for i, j in enumerate(rows_nonzero) if j == max_row_nonzero]
-    print(max_row_nonzero)
-    print(max_row_indices)
     
     deprojected_coordinates_robot_blob_width = deprojected_coordinates_robot[max_row_indices[0],:,:]
     blob_width_coords_x = []
@@ -605,7 +601,6 @@ def max_blob_width(deprojected_coordinates_robot, mask, aligned_depth_frame, blo
             blob_width_coords_z.append(deprojected_coordinates_robot[max_row_indices[0],j,2])
     if (blob_width_coords_x):
         width_x = abs(blob_width_coords_x[-1] - blob_width_coords_x[0])
-        print("blob width:", width_x)
         
     object_size_in_image = len(deprojected_coordinates_robot_blob_width) * step
     object_distance_from_camera = blob_mean_coords[2]

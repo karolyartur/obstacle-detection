@@ -22,6 +22,23 @@ import zmq
 import Msg
 import flatbuffers
 from time import sleep
+import argparse
+
+def parse_args():
+
+    parser = argparse.ArgumentParser(
+        description = 'Obstacle detection module')
+    parser.add_argument(
+        '-debug', dest='debug',
+        help='Boolean swith to switch debug mode on and off. Default is: false (off)',
+        default=False, action='store_true')
+    parser.add_argument(
+        '-filename', dest='filename',
+        help='Name of the config file. Default is: cam_robot_transform_config.yaml',
+        default='cam_robot_transform_config.yaml', type=str)
+
+    args = parser.parse_args()
+    return args
 
 ##########################################################
 # Sensorfusion subscribe ZMQ init
@@ -35,9 +52,11 @@ try:
     print(socket.recv(zmq.NOBLOCK))
     socket.recv()
     print('Received data from ZMQ')
+    print("\nSpeed source ROBOT\n")
 except:
     use_zmq_data = False
     print('\nUnable to get data from ZMQ!')
+    print("\nSpeed source CONST\n")
 
 ###########################################################
 
@@ -51,7 +70,7 @@ socket_p.bind("tcp://*:5555")
 ###########################################################
        
     
-def run_obstacle_detection(registration_file):
+def run_obstacle_detection(args):
 
     # Make an instance of the network
     net = network.Network()
@@ -66,7 +85,7 @@ def run_obstacle_detection(registration_file):
     v_robot_const = np.matrix('0; 0; 0')
     omega_robot_const = np.matrix('0; 0; 0')
 
-    with open(registration_file) as file:
+    with open(args.filename) as file:
         # The FullLoader parameter handles the conversion from YAML
         # scalar values to Python the dictionary format
         reg_params = yaml.load(file, Loader=yaml.FullLoader)
@@ -128,7 +147,6 @@ def run_obstacle_detection(registration_file):
 
         # Deprojection
         deproject_flow_prev = emf.deproject(depth_frame_prev_aligned, step=step)
-        #deprojected_prev = emf.deproject(depth_frame_prev_aligned, 0, 479)
 
         #######################################################
 
@@ -143,7 +161,8 @@ def run_obstacle_detection(registration_file):
                 continue
 
             # Read images
-            depth_image = ri.convert_img_to_nparray(depth_frame)
+            if args.debug:
+                depth_image = ri.convert_img_to_nparray(depth_frame)
             color_image = ri.convert_img_to_nparray(color_frame)
 
 
@@ -175,11 +194,12 @@ def run_obstacle_detection(registration_file):
             diff_flow_robot = emf.transform_velocites(diff_flow, T_robot_cam)
 
             # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-            depth_colormap = ri.get_depth_colormap(depth_image, 1)
+            if args.debug:
+                depth_colormap = ri.get_depth_colormap(depth_image, 1)
 
             # Stack both images horizontally
-            images = np.hstack((color_image, depth_colormap))
-            ri.show_imgs('Optical flow', emf.draw_flow(gray, flow.astype(int), step=step), 1)
+            if args.debug:
+                ri.show_imgs('Optical flow', emf.draw_flow(gray, flow.astype(int), step=step), 1)
 
             #######################################################
 
@@ -190,11 +210,9 @@ def run_obstacle_detection(registration_file):
                 speed_source = SpeedSource.CONST                
 
             if speed_source == SpeedSource.CONST:
-                print("\nSpeed source CONST\n")
                 v_robot = v_robot_const
                 omega_robot = omega_robot_const
             elif speed_source == SpeedSource.ROBOT:
-                print("\nSpeed source ROBOT\n")
                 array_buffer = socket.recv()
                 data_bytearray = bytearray(array_buffer)
                 msg = Msg.Msg.GetRootAsMsg(array_buffer,0)
@@ -209,7 +227,8 @@ def run_obstacle_detection(registration_file):
                 v_robot = np.matrix([[v_sensorfusion],  [0] , [0]])
                 omega_robot = np.matrix([[0],  [0] , [omega_sensorfusion]])
 
-                print(v_robot)
+                if args.debug:
+                    print(v_robot)
 
 
             deprojected_coordinates_robot = emf.transform_points(deproject_flow, T_robot_cam)
@@ -231,14 +250,9 @@ def run_obstacle_detection(registration_file):
 
             filtered_to_flow = emf.filtered_flow_2d(egomotion_filtered_flow, \
                                         flow, step=step)
-            ri.show_imgs('Optical flow filtered', \
+            if args.debug:
+                ri.show_imgs('Optical flow filtered', \
                             emf.draw_flow(gray, filtered_to_flow, step=step), 1)
-
-            full_len = deproject_flow.shape[0]*deproject_flow.shape[1]
-
-            deproject_flow_flat = deproject_flow.reshape(full_len,3)
-            three_d_flow_x = np.squeeze(diff_flow[:,:,0].reshape(full_len,1))
-            three_d_flow_x = three_d_flow_x
 
             #######################################################
             # Prepare data for network
@@ -263,14 +277,14 @@ def run_obstacle_detection(registration_file):
             # Make predictions with the network
             prediction,mask = net.predict(conc_img)
 
-            # Visualization
-            viz = cv.resize(np.reshape(mask,(30,30)), (299,299))
             mask_small = np.reshape(mask,(30,30))
-            #mask_small = np.zeros((30,30)) # for validation
-            viz_2 = cv.resize(np.reshape(prediction,(30,30)), (299,299))
-            utils.visualize_flow(viz)
-            utils.visualize_flow(viz_2, name='pred')
-            utils.visualize_flow(gray_resized, name='imgs')
+            if args.debug:
+                # Visualization
+                viz = cv.resize(np.reshape(mask,(30,30)), (299,299))
+                viz_2 = cv.resize(np.reshape(prediction,(30,30)), (299,299))
+                utils.visualize_flow(viz)
+                utils.visualize_flow(viz_2, name='pred')
+                utils.visualize_flow(gray_resized, name='imgs')
 
 
             #######################################################
@@ -278,7 +292,8 @@ def run_obstacle_detection(registration_file):
 
             mask_small_blob = mask_small.astype(np.uint8)
             mask_small_blob = emf.find_largest_blob(mask_small_blob)
-            utils.visualize_flow(np.array(cv.resize(mask_small_blob, (299,299)), dtype=np.float32), name='mask_small_blob')
+            if args.debug:
+                utils.visualize_flow(np.array(cv.resize(mask_small_blob, (299,299)), dtype=np.float32), name='mask_small_blob')
             blob_max = mask_small_blob.reshape((mask_small_blob.shape[0]*mask_small_blob.shape[1])).max(axis=0)
 
             if (blob_max > 0):
@@ -289,9 +304,10 @@ def run_obstacle_detection(registration_file):
                 blob_avg_coords = emf.avg_coords(deprojected_coordinates_robot_small, mask_small_blob)
                 blob_width = emf.max_blob_width(deprojected_coordinates_robot_small, mask_small_blob, depth_frame_aligned, blob_avg_coords, step = step)
                 blob_send = [blob_avg_coords, blob_width]
-                print("Bounding box:\n({}\t{}\t{})\n({}\t{}\t{})".format( \
-                        bb.get('x1'), bb.get('y1'), bb.get('z1'), \
-                        bb.get('x2'), bb.get('y2'), bb.get('z2')))
+                if args.debug:
+                    print("Bounding box:\n({}\t{}\t{})\n({}\t{}\t{})".format( \
+                            bb.get('x1'), bb.get('y1'), bb.get('z1'), \
+                            bb.get('x2'), bb.get('y2'), bb.get('z2')))
             else:
                 bb = {'x1': math.nan, 'y1': math.nan, 'z1': math.nan,\
                       'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
@@ -308,10 +324,11 @@ def run_obstacle_detection(registration_file):
 
             velocity_mean_nonzero_elements, velocity_std_nonzero_elements = \
                             emf.calc_mean_velocity(egomotion_filtered_flow_masked)
-            print("Result velocity mean:\t{} [m/s]"\
-                    .format(velocity_mean_nonzero_elements))
-            print("Result velocity std:\t{} [m/s]"\
-                    .format(velocity_std_nonzero_elements))
+            if args.debug:
+                print("Result velocity mean:\t{} [m/s]"\
+                        .format(velocity_mean_nonzero_elements))
+                print("Result velocity std:\t{} [m/s]"\
+                        .format(velocity_std_nonzero_elements))
 
             deproject_flow_masked=deproject_flow[:,\
                                     int((ew-eh)/2):int((ew+eh)/2),:]
@@ -322,8 +339,9 @@ def run_obstacle_detection(registration_file):
             depth_mean_z, depth_std_z = \
                 emf.calc_mean_depth(egomotion_filtered_flow_masked, \
                                         deproject_flow_masked)
-            print("Result depth mean:\t{} [m]".format(depth_mean_z))
-            print("Result depth std:\t{} [m]".format(depth_std_z))
+            if args.debug:
+                print("Result depth mean:\t{} [m]".format(depth_mean_z))
+                print("Result depth std:\t{} [m]".format(depth_std_z))
 
 
 
@@ -341,8 +359,6 @@ def run_obstacle_detection(registration_file):
             deproject_flow_prev = deproject_flow
             depth_frame_prev_aligned = depth_frame_aligned
 
-            print("")
-
 
         print("Executed succesfully.")
 
@@ -359,13 +375,9 @@ def run_obstacle_detection(registration_file):
 
 if __name__ == "__main__":
 
-    # Choose the data folder
-    if (len(sys.argv)<2 ):
-        print("Usage details: python online_test.py <path_for_registration_yaml_file>")
-        sys.exit()
+    args = parse_args()
 
-    registration_file = str(sys.argv[1])
-    run_obstacle_detection(registration_file)
+    run_obstacle_detection(args)
 
 
 
