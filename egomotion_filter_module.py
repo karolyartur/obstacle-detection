@@ -597,7 +597,7 @@ def max_blob_width(deprojected_coordinates_robot, mask, aligned_depth_frame, blo
         width_x = abs(blob_width_coords_x[-1] - blob_width_coords_x[0])
         print("blob width:", width_x)
         
-    object_size_in_image = len(deprojected_coordinates_robot_blob_width) #* step
+    object_size_in_image = len(deprojected_coordinates_robot_blob_width) * step
     object_distance_from_camera = blob_mean_coords[2]
     depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
     fx = intr.get_fx(depth_intrin)
