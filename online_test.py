@@ -21,9 +21,30 @@ import network
 import utils
 import yaml
 import math
+import zmq
+import Msg
+import flatbuffers
+from time import sleep
 
+##########################################################
+# Sensorfusion subscribe ZMQ init
 
+context = zmq.Context()
+socket = context.socket(zmq.SUB)
+socket.connect("tcp://localhost:1111")
 
+###########################################################
+
+##########################################################
+# Publish blob ZMQ init
+
+context_p = zmq.Context()
+socket_p = context.socket(zmq.PUB)
+socket_p.bind("tcp://*:5555")
+
+###########################################################
+       
+    
 def run_obstacle_detection(registration_file):
 
     # Make an instance of the network
@@ -66,7 +87,7 @@ def run_obstacle_detection(registration_file):
     step = 16
     threshold = 0.001
 
-    speed_source = SpeedSource.CONST
+    speed_source = SpeedSource.ROBOT
 
 
     if speed_source == SpeedSource.CONST:
@@ -170,11 +191,35 @@ def run_obstacle_detection(registration_file):
 
             #######################################################
 
+            socket.subscribe(b'd\x02\x00\x03')
+            if socket.recv() == True:
+                speed_source == SpeedSource.ROBOT
+            else:
+                speed_source == SpeedSource.CONST
+
             if speed_source == SpeedSource.CONST:
                 v_robot = v_robot_const
                 omega_robot = omega_robot_const
             elif speed_source == SpeedSource.ROBOT:
-                print("\nSpeed source ROBOT TODO\n")
+                #topic = socket.recv()
+                array_buffer = socket.recv()
+                data_bytearray = bytearray(array_buffer)
+                msg = Msg.Msg.GetRootAsMsg(array_buffer,0)
+                msg_as_np = msg.ValueVectorAsNumpy()
+    
+                x_sensorfusion = msg_as_np[0]
+                y_sensorfusion = msg_as_np[1]
+                phi_sensorfusion = msg_as_np[2]
+                v_sensorfusion = msg_as_np[3]
+                omega_sensorfusion = msg_as_np[4]
+    
+                v_vehicle_0 = math.cos(phi_sensorfusion)*v_sensorfusion
+                v_vehicle_1 = math.sin(phi_sensorfusion)*v_sensorfusion
+    
+                v_robot = np.matrix([[v_vehicle_0],  [v_vehicle_1] , [0]])
+                omega_robot = np.matrix([[0],  [0] , [omega_sensorfusion]])
+
+                print(v_robot)
 
 
             deprojected_coordinates_robot = emf.transform_points(deproject_flow, T_robot_cam)
@@ -250,17 +295,19 @@ def run_obstacle_detection(registration_file):
                 bh, bw, bd = deprojected_coordinates_robot.shape
                 deprojected_coordinates_robot_small=deprojected_coordinates_robot[:,int((bw-bh)/2):int((bw+bh)/2),:]
                 bb = emf.get_3D_bounding_box(deprojected_coordinates_robot_small, mask_small_blob)
+                
                 blob_avg_coords = emf.avg_coords(deprojected_coordinates_robot_small, mask_small_blob)
-                blob_width = emf.max_blob_width(deprojected_coordinates_robot_small, mask_small_blob)
+                blob_width = emf.max_blob_width(deprojected_coordinates_robot_small, mask_small_blob, depth_frame_aligned, blob_avg_coords, step = step)
+                blob_send = [blob_avg_coords, blob_width]
                 print("Bounding box:\n({}\t{}\t{})\n({}\t{}\t{})".format( \
                         bb.get('x1'), bb.get('y1'), bb.get('z1'), \
                         bb.get('x2'), bb.get('y2'), bb.get('z2')))
             else:
                 bb = {'x1': math.nan, 'y1': math.nan, 'z1': math.nan,\
                       'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
-                      
+                blob_send = [0, 0, 0, 0]  
+            
 
-            #######################################################
 
             # Display point cloud
             emf.show_pointcloud(v, deproject_flow_flat, three_d_flow_x)
@@ -293,6 +340,12 @@ def run_obstacle_detection(registration_file):
             print("Result depth mean:\t{} [m]".format(depth_mean_z))
             print("Result depth std:\t{} [m]".format(depth_std_z))
 
+
+
+            #######################################################
+            # ZMQ publish blob
+            blob_msg_full = [blob_send, velocity_mean_nonzero_elements]
+            socket_p.send_pyobj(blob_msg_full)
 
             #######################################################
 

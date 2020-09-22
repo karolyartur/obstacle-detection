@@ -360,16 +360,14 @@ try:
         else:
             bb = {'x1': math.nan, 'y1': math.nan, 'z1': math.nan,\
                   'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
-                      
+            blob_send = np.array([0, 0, 0, 0])       
 
         #######################################################
         
         # ZMQ send object center and size
         
-        if is_zmq:
-            #message = socket.recv_string()
-            #if message == "read":
-            socket.send_pyobj(blob_send)
+
+        socket.send_pyobj(blob_send)
         
         #######################################################
 
