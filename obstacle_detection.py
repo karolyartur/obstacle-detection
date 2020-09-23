@@ -46,11 +46,11 @@ def parse_args():
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
 use_zmq_data = True
-socket.connect("tcp://localhost:1111")
+socket.connect("tcp://192.168.1.242:1111")
 socket.subscribe(b'd\x02\x00\x03')
 try:
     print(socket.recv(zmq.NOBLOCK))
-    socket.recv()
+    socket.recv(zmq.NOBLOCK)
     print('Received data from ZMQ')
     print("\nSpeed source ROBOT\n")
 except:
@@ -121,87 +121,102 @@ def run_obstacle_detection(args):
     ri.enable_stream_sr300(config_1, 640, 480, 30)
     dt = 1.0 / 30 #s
 
+    use_realsense = False
     # Start pipeline
-    pipeline_1.start(config_1)
+    try:
+        pipeline_1.start(config_1)
+    except RuntimeError:
+        use_realsense = False
+        print('Unable to connect to realsense camera, using webcam with static mode!')
 
 
     try:
 
-        # Wait for a coherent pair of frames: depth and color
-        frames_sr300 = ri.get_frames(pipeline_1)
-        depth_frame = ri.get_depth_frames(frames_sr300)
-        color_frame = ri.get_color_frames(frames_sr300)
-
-
-        # Convert images to numpy arrays
-        depth_image_prev = ri.convert_img_to_nparray(depth_frame)
-        color_image_prev = ri.convert_img_to_nparray(color_frame)
-
-        # Convert RGB image to gray (for optical flow)
-        gray_prev = emf.rgb_to_gray(color_image_prev)
-        ih,iw = gray_prev.shape
-
-
-        # Align depth to color
-        depth_frame_prev_aligned = emf.align_depth_to_color(frames_sr300)
-
-        # Deprojection
-        deproject_flow_prev = emf.deproject(depth_frame_prev_aligned, step=step)
-
-        #######################################################
-
-        while True:
-
+        if use_realsense:
             # Wait for a coherent pair of frames: depth and color
             frames_sr300 = ri.get_frames(pipeline_1)
             depth_frame = ri.get_depth_frames(frames_sr300)
             color_frame = ri.get_color_frames(frames_sr300)
-            if not depth_frame or not color_frame:
-                print('Did not recieve frames')
-                continue
-
-            # Read images
-            if args.debug:
-                depth_image = ri.convert_img_to_nparray(depth_frame)
-            color_image = ri.convert_img_to_nparray(color_frame)
 
 
+            # Convert images to numpy arrays
+            depth_image_prev = ri.convert_img_to_nparray(depth_frame)
+            color_image_prev = ri.convert_img_to_nparray(color_frame)
 
             # Convert RGB image to gray (for optical flow)
-            gray = emf.rgb_to_gray(color_image)
+            gray_prev = emf.rgb_to_gray(color_image_prev)
+            ih,iw = gray_prev.shape
 
-            #######################################################
-
-
-
-            # Calculate optical flow
-            flow = cv2.calcOpticalFlowFarneback(gray_prev, gray,
-                            None, 0.5, 5, 15, 3, 5, 1,
-                            cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
-
-            # Get the previous and the current pixel locations
-            lines = emf.get_lines(gray, flow, step=step)
 
             # Align depth to color
-            depth_frame_aligned = emf.align_depth_to_color(frames_sr300)
+            depth_frame_prev_aligned = emf.align_depth_to_color(frames_sr300)
 
-
-            # Deproject the current pixels for 3D optical flow
-            deproject_flow = emf.deproject_flow_new(depth_frame_aligned, lines, step=step)
-
-            # Calculate 3D optical flow
-            diff_flow = emf.flow_3d(deproject_flow, deproject_flow_prev,dt)
-            diff_flow_robot = emf.transform_velocites(diff_flow, T_robot_cam)
-
-            # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-            if args.debug:
-                depth_colormap = ri.get_depth_colormap(depth_image, 1)
-
-            # Stack both images horizontally
-            if args.debug:
-                ri.show_imgs('Optical flow', emf.draw_flow(gray, flow.astype(int), step=step), 1)
+            # Deprojection
+            deproject_flow_prev = emf.deproject(depth_frame_prev_aligned, step=step)
 
             #######################################################
+        else:
+            cap = utils.get_cap(0)
+            gray_prev = utils.get_grayImage(cap)
+            ih,iw = gray_prev.shape
+
+        while True:
+            if use_realsense:
+                # Wait for a coherent pair of frames: depth and color
+                frames_sr300 = ri.get_frames(pipeline_1)
+                depth_frame = ri.get_depth_frames(frames_sr300)
+                color_frame = ri.get_color_frames(frames_sr300)
+                if not depth_frame or not color_frame:
+                    print('Did not recieve frames')
+                    continue
+
+                # Read images
+                if args.debug:
+                    depth_image = ri.convert_img_to_nparray(depth_frame)
+                color_image = ri.convert_img_to_nparray(color_frame)
+
+
+
+                # Convert RGB image to gray (for optical flow)
+                gray = emf.rgb_to_gray(color_image)
+
+                #######################################################
+
+
+
+                # Calculate optical flow
+                flow = cv2.calcOpticalFlowFarneback(gray_prev, gray,
+                                None, 0.5, 5, 15, 3, 5, 1,
+                                cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+
+                # Get the previous and the current pixel locations
+                lines = emf.get_lines(gray, flow, step=step)
+
+                # Align depth to color
+                depth_frame_aligned = emf.align_depth_to_color(frames_sr300)
+
+
+                # Deproject the current pixels for 3D optical flow
+                deproject_flow = emf.deproject_flow_new(depth_frame_aligned, lines, step=step)
+
+                # Calculate 3D optical flow
+                diff_flow = emf.flow_3d(deproject_flow, deproject_flow_prev,dt)
+                diff_flow_robot = emf.transform_velocites(diff_flow, T_robot_cam)
+
+                # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
+                if args.debug:
+                    depth_colormap = ri.get_depth_colormap(depth_image, 1)
+
+                # Stack both images horizontally
+                if args.debug:
+                    ri.show_imgs('Optical flow', emf.draw_flow(gray, flow.astype(int), step=step), 1)
+
+                #######################################################
+            else:
+                gray = utils.get_grayImage(cap)
+                flow = cv2.calcOpticalFlowFarneback(gray_prev, gray,
+                                None, 0.5, 5, 15, 3, 5, 1,
+                                cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
 
             
             if use_zmq_data == True:
@@ -230,36 +245,34 @@ def run_obstacle_detection(args):
                 if args.debug:
                     print(v_robot)
 
+            if use_realsense:
+                deprojected_coordinates_robot = emf.transform_points(deproject_flow, T_robot_cam)
+                velocities_from_egomotion_robot = \
+                    emf.velocity_from_point_clouds_robot_frame(deprojected_coordinates_robot, \
+                                                v_robot, omega_robot)
 
-            deprojected_coordinates_robot = emf.transform_points(deproject_flow, T_robot_cam)
-            velocities_from_egomotion_robot = \
-                emf.velocity_from_point_clouds_robot_frame(deprojected_coordinates_robot, \
-                                            v_robot, omega_robot)
+                threshold = abs(v_robot[0][0])*0.001
+                # Compare the velocities
+                egomotion_filtered_flow = \
+                    emf.velocity_comparison(depth_frame_aligned, \
+                                                diff_flow_robot, \
+                                                velocities_from_egomotion_robot, \
+                                                threshold, step=step)
 
-            threshold = abs(v_robot[0][0])*0.001
-            # Compare the velocities
-            egomotion_filtered_flow = \
-                emf.velocity_comparison(depth_frame_aligned, \
-                                            diff_flow_robot, \
-                                            velocities_from_egomotion_robot, \
-                                            threshold, step=step)
+                nonzero_elements = egomotion_filtered_flow[np.nonzero(\
+                                            egomotion_filtered_flow > 0)]
+                nonzero_indices = np.where(egomotion_filtered_flow != 0)[0]
 
-            nonzero_elements = egomotion_filtered_flow[np.nonzero(\
-                                        egomotion_filtered_flow > 0)]
-            nonzero_indices = np.where(egomotion_filtered_flow != 0)[0]
-
-            filtered_to_flow = emf.filtered_flow_2d(egomotion_filtered_flow, \
-                                        flow, step=step)
-            if args.debug:
-                ri.show_imgs('Optical flow filtered', \
-                            emf.draw_flow(gray, filtered_to_flow, step=step), 1)
+                filtered_to_flow = emf.filtered_flow_2d(egomotion_filtered_flow, \
+                                            flow, step=step)
+                if args.debug:
+                    ri.show_imgs('Optical flow filtered', \
+                                emf.draw_flow(gray, filtered_to_flow, step=step), 1)
 
             #######################################################
             # Prepare data for network
 
-            use_filtered_flow = True
-
-            if (use_filtered_flow):
+            if (use_realsense):
                 flow_for_nn=filtered_to_flow[:,int((iw-ih)/2):int((iw+ih)/2)]
             else:
                 flow_for_nn=flow[:,int((iw-ih)/2):int((iw+ih)/2)]
@@ -290,74 +303,79 @@ def run_obstacle_detection(args):
             #######################################################
             # Bounding box
 
-            mask_small_blob = mask_small.astype(np.uint8)
-            mask_small_blob = emf.find_largest_blob(mask_small_blob)
-            if args.debug:
-                utils.visualize_flow(np.array(cv.resize(mask_small_blob, (299,299)), dtype=np.float32), name='mask_small_blob')
-            blob_max = mask_small_blob.reshape((mask_small_blob.shape[0]*mask_small_blob.shape[1])).max(axis=0)
-
-            if (blob_max > 0):
-                bh, bw, bd = deprojected_coordinates_robot.shape
-                deprojected_coordinates_robot_small=deprojected_coordinates_robot[:,int((bw-bh)/2):int((bw+bh)/2),:]
-                bb = emf.get_3D_bounding_box(deprojected_coordinates_robot_small, mask_small_blob)
-                
-                blob_avg_coords = emf.avg_coords(deprojected_coordinates_robot_small, mask_small_blob)
-                blob_width = emf.max_blob_width(deprojected_coordinates_robot_small, mask_small_blob, depth_frame_aligned, blob_avg_coords, step = step)
-                blob_send = [blob_avg_coords, blob_width]
+            if use_realsense:
+                mask_small_blob = mask_small.astype(np.uint8)
+                mask_small_blob = emf.find_largest_blob(mask_small_blob)
                 if args.debug:
-                    print("Bounding box:\n({}\t{}\t{})\n({}\t{}\t{})".format( \
-                            bb.get('x1'), bb.get('y1'), bb.get('z1'), \
-                            bb.get('x2'), bb.get('y2'), bb.get('z2')))
+                    utils.visualize_flow(np.array(cv.resize(mask_small_blob, (299,299)), dtype=np.float32), name='mask_small_blob')
+                blob_max = mask_small_blob.reshape((mask_small_blob.shape[0]*mask_small_blob.shape[1])).max(axis=0)
+
+                if (blob_max > 0):
+                    bh, bw, bd = deprojected_coordinates_robot.shape
+                    deprojected_coordinates_robot_small=deprojected_coordinates_robot[:,int((bw-bh)/2):int((bw+bh)/2),:]
+                    bb = emf.get_3D_bounding_box(deprojected_coordinates_robot_small, mask_small_blob)
+                    
+                    blob_avg_coords = emf.avg_coords(deprojected_coordinates_robot_small, mask_small_blob)
+                    blob_width = emf.max_blob_width(deprojected_coordinates_robot_small, mask_small_blob, depth_frame_aligned, blob_avg_coords, step = step)
+                    blob_send = [blob_avg_coords, blob_width]
+                    if args.debug:
+                        print("Bounding box:\n({}\t{}\t{})\n({}\t{}\t{})".format( \
+                                bb.get('x1'), bb.get('y1'), bb.get('z1'), \
+                                bb.get('x2'), bb.get('y2'), bb.get('z2')))
+                else:
+                    bb = {'x1': math.nan, 'y1': math.nan, 'z1': math.nan,\
+                        'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
+                    blob_send = [0, 0, 0, 0]  
+
+                # Calculate props of the moving object
+                eh, ew, ed = egomotion_filtered_flow.shape
+                egomotion_filtered_flow_masked=egomotion_filtered_flow[:,\
+                                                int((ew-eh)/2):int((ew+eh)/2),:]
+
+                # Mask result on point velocities
+                egomotion_filtered_flow_masked = np.multiply(egomotion_filtered_flow_masked,\
+                                    np.stack((mask_small, mask_small, mask_small), axis=2))
+
+                velocity_mean_nonzero_elements, velocity_std_nonzero_elements = \
+                                emf.calc_mean_velocity(egomotion_filtered_flow_masked)
+                if args.debug:
+                    print("Result velocity mean:\t{} [m/s]"\
+                            .format(velocity_mean_nonzero_elements))
+                    print("Result velocity std:\t{} [m/s]"\
+                            .format(velocity_std_nonzero_elements))
+
+                deproject_flow_masked=deproject_flow[:,\
+                                        int((ew-eh)/2):int((ew+eh)/2),:]
+
+                # Mask result on point positions
+                deproject_flow_masked = np.multiply(deproject_flow_masked,\
+                            np.stack((mask_small, mask_small, mask_small), axis=2))
+                depth_mean_z, depth_std_z = \
+                    emf.calc_mean_depth(egomotion_filtered_flow_masked, \
+                                            deproject_flow_masked)
+                if args.debug:
+                    print("Result depth mean:\t{} [m]".format(depth_mean_z))
+                    print("Result depth std:\t{} [m]".format(depth_std_z))
+
+
+
+                #######################################################
+                # ZMQ publish blob
+                blob_msg_full = [blob_send, velocity_mean_nonzero_elements]
+                socket_p.send_pyobj(blob_msg_full)
+
+                #######################################################
+
+                # Because of optical flow we have to change the images
+                gray_prev = gray
+
+                # Change the points as well
+                deproject_flow_prev = deproject_flow
+                depth_frame_prev_aligned = depth_frame_aligned
+
             else:
-                bb = {'x1': math.nan, 'y1': math.nan, 'z1': math.nan,\
-                      'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
-                blob_send = [0, 0, 0, 0]  
-
-            # Calculate props of the moving object
-            eh, ew, ed = egomotion_filtered_flow.shape
-            egomotion_filtered_flow_masked=egomotion_filtered_flow[:,\
-                                            int((ew-eh)/2):int((ew+eh)/2),:]
-
-            # Mask result on point velocities
-            egomotion_filtered_flow_masked = np.multiply(egomotion_filtered_flow_masked,\
-                                np.stack((mask_small, mask_small, mask_small), axis=2))
-
-            velocity_mean_nonzero_elements, velocity_std_nonzero_elements = \
-                            emf.calc_mean_velocity(egomotion_filtered_flow_masked)
-            if args.debug:
-                print("Result velocity mean:\t{} [m/s]"\
-                        .format(velocity_mean_nonzero_elements))
-                print("Result velocity std:\t{} [m/s]"\
-                        .format(velocity_std_nonzero_elements))
-
-            deproject_flow_masked=deproject_flow[:,\
-                                    int((ew-eh)/2):int((ew+eh)/2),:]
-
-            # Mask result on point positions
-            deproject_flow_masked = np.multiply(deproject_flow_masked,\
-                        np.stack((mask_small, mask_small, mask_small), axis=2))
-            depth_mean_z, depth_std_z = \
-                emf.calc_mean_depth(egomotion_filtered_flow_masked, \
-                                        deproject_flow_masked)
-            if args.debug:
-                print("Result depth mean:\t{} [m]".format(depth_mean_z))
-                print("Result depth std:\t{} [m]".format(depth_std_z))
-
-
-
-            #######################################################
-            # ZMQ publish blob
-            blob_msg_full = [blob_send, velocity_mean_nonzero_elements]
-            socket_p.send_pyobj(blob_msg_full)
-
-            #######################################################
-
-            # Because of optical flow we have to change the images
-            gray_prev = gray
-
-            # Change the points as well
-            deproject_flow_prev = deproject_flow
-            depth_frame_prev_aligned = depth_frame_aligned
+                gray_prev = gray
+                socket_p.send_pyobj(mask)
 
 
         print("Executed succesfully.")
@@ -367,8 +385,9 @@ def run_obstacle_detection(args):
         print("Program exited.")
 
     finally:
-        # Stop streaming
-        pipeline_1.stop()
+        if use_realsense:
+            # Stop streaming
+            pipeline_1.stop()
 
 
 
