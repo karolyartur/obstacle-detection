@@ -39,4 +39,8 @@ source obstacle_detection/bin/activate
 cd ../obstacle-detection
 pip install wheel
 pip install -r requirements.txt
+
+# Install tkinter for ZMQ
+sudo apt-get install python3-tk
+
 echo "Installation complete"
