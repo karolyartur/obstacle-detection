@@ -50,7 +50,6 @@ def main(args):
     with open('data.txt', 'w') as f:
         while True:
 
-            msg_time = time.time()
             if use_zmq_data:
                 array_buffer = socket.recv()
                 data_bytearray = bytearray(array_buffer)
@@ -58,6 +57,7 @@ def main(args):
                 msg_as_np = msg.ValueVectorAsNumpy()
             else:
                 msg_as_np = np.array([0,0,0,0,0])
+            msg_time = time.time()
             if args.record:
                 f.write(np.array_str(msg_as_np)+','+str(msg_time-start_time)+'\n')
 
