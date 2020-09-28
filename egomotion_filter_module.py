@@ -283,14 +283,13 @@ def velocity_from_point_clouds_robot_frame(deprojected_coordinates_robot, \
 #  @return the egomotion filtered optical 3D optical flow
 
 
-def velocity_comparison(aligned_depth_frame, diff_flow, velocities_from_egomotion, threshold, step=16):
+def velocity_comparison(aligned_depth_frame, diff_flow, velocities_from_egomotion, threshold_lower, threshold_upper, step=16):
     depth_image = np.asanyarray(aligned_depth_frame.get_data())
     h, w = depth_image.shape[:2]
     egomotion_filtered_flow = np.empty((h//step, w//step, 3))
     diff_flow_rel = np.empty((h//step, w//step, 3))
     for i in range(h//step):
         for j in range(w//step):
-            #print("diff_flow:\t{}\t\tvelocity:\t{}".format(diff_flow[i,j,:],velocities_from_egomotion[i,j,:]))
             if np.isnan(diff_flow[i,j,0]) or np.isnan(velocities_from_egomotion[i,j,0]):
                 diff_flow_rel[i,j,0] = 0
                 diff_flow_rel[i,j,1] = 0
@@ -300,7 +299,8 @@ def velocity_comparison(aligned_depth_frame, diff_flow, velocities_from_egomotio
                 diff_flow_rel[i,j,1] = -(diff_flow[i,j,1] - velocities_from_egomotion[i,j,1])
                 diff_flow_rel[i,j,2] = -(diff_flow[i,j,2] - velocities_from_egomotion[i,j,2])
 
-            if (abs(diff_flow_rel[i,j,0]) > threshold or abs(diff_flow_rel[i,j,1]) > threshold or abs(diff_flow_rel[i,j,2]) > threshold):
+            if ((abs(diff_flow_rel[i,j,0]) > threshold_lower or abs(diff_flow_rel[i,j,1]) > threshold_lower or abs(diff_flow_rel[i,j,2]) > threshold_lower) and \
+                    (abs(diff_flow_rel[i,j,2]) < threshold_upper)):
                 egomotion_filtered_flow[i,j] = diff_flow_rel[i,j]
   
             else:
@@ -602,7 +602,7 @@ def max_blob_width(deprojected_coordinates_robot, mask, aligned_depth_frame, blo
     if (blob_width_coords_x):
         width_x = abs(blob_width_coords_x[-1] - blob_width_coords_x[0])
         
-    object_size_in_image = len(deprojected_coordinates_robot_blob_width) * step
+    object_size_in_image = max_row_nonzero * step
     object_distance_from_camera = blob_mean_coords[2]
     depth_intrin = aligned_depth_frame.profile.as_video_stream_profile().intrinsics
     fx = intr.get_fx(depth_intrin)
@@ -611,19 +611,3 @@ def max_blob_width(deprojected_coordinates_robot, mask, aligned_depth_frame, blo
     object_estimated_width = (object_size_in_image * object_distance_from_camera) / fx
     
     return object_estimated_width
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

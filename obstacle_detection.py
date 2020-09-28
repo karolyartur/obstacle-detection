@@ -107,7 +107,6 @@ def run_obstacle_detection(args):
 
     # Algorithm settings
     step = 16
-    threshold = 0.001
 
     # Get config for the stream
     config_1 = ri.get_config()
@@ -236,13 +235,14 @@ def run_obstacle_detection(args):
                 emf.velocity_from_point_clouds_robot_frame(deprojected_coordinates_robot, \
                                             v_robot, omega_robot)
 
-            threshold = abs(v_robot[0][0])*0.001
+            threshold_lower = abs(v_robot[0][0])*0.001
+            threshold_upper = 0.5
             # Compare the velocities
             egomotion_filtered_flow = \
                 emf.velocity_comparison(depth_frame_aligned, \
                                             diff_flow_robot, \
                                             velocities_from_egomotion_robot, \
-                                            threshold, step=step)
+                                            threshold_lower, threshold_upper, step=step)
 
             nonzero_elements = egomotion_filtered_flow[np.nonzero(\
                                         egomotion_filtered_flow > 0)]
