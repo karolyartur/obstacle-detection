@@ -46,10 +46,10 @@ def parse_args():
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
 use_zmq_data = True
-socket.connect("tcp://localhost:1111")
+socket.connect("tcp://192.168.1.242:1111")
 socket.subscribe(b'd\x02\x00\x03')
 try:
-    print(socket.recv(zmq.NOBLOCK))
+    print(socket.recv())
     socket.recv()
     print('Received data from ZMQ')
     print("\nSpeed source ROBOT\n")
@@ -212,6 +212,7 @@ def run_obstacle_detection(args):
                 v_robot = v_robot_const
                 omega_robot = omega_robot_const
             elif speed_source == SpeedSource.ROBOT:
+                socket.recv()
                 array_buffer = socket.recv()
                 data_bytearray = bytearray(array_buffer)
                 msg = Msg.Msg.GetRootAsMsg(array_buffer,0)
@@ -347,7 +348,7 @@ def run_obstacle_detection(args):
 
             #######################################################
             # ZMQ publish blob
-            blob_msg_full = [blob_send, velocity_mean_nonzero_elements]
+            blob_msg_full = [blob_send, velocity_mean_nonzero_elements, msg_as_np]
             socket_p.send_pyobj(blob_msg_full)
 
             #######################################################

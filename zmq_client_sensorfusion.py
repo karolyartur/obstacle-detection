@@ -8,7 +8,7 @@ import math
 
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
-socket.connect("tcp://localhost:1111")
+socket.connect("tcp://192.168.1.242:1111")
 
 while True:
     socket.subscribe(b'd\x02\x00\x03')

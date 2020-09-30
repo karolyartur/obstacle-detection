@@ -51,6 +51,7 @@ def main(args):
         while True:
 
             if use_zmq_data:
+                socket.recv()
                 array_buffer = socket.recv()
                 data_bytearray = bytearray(array_buffer)
                 msg = Msg.Msg.GetRootAsMsg(array_buffer,0)
@@ -108,10 +109,10 @@ if __name__ == "__main__":
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
     use_zmq_data = True
-    socket.connect("tcp://localhost:1111")
+    socket.connect("tcp://192.168.1.242:1111")
     socket.subscribe(b'd\x02\x00\x03')
     try:
-        print(socket.recv(zmq.NOBLOCK))
+        print(socket.recv())
         socket.recv()
         print('Received data from ZMQ')
         print("\nConnected to ZMQ\n")

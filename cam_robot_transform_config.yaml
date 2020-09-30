@@ -1,4 +1,4 @@
 # dummy registration file
 
-R_cam_robot: 1 0 0; 0 1 0; 0 0 1
-t_cam_robot: 0; 0; 0
+R_cam_robot: 0 -1 0; 0 0 -1; 1 0 0
+t_cam_robot: 0.1; 0.16; -0.95
