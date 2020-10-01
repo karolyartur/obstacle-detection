@@ -50,6 +50,14 @@ realsense-viewer
 ```
 in the command line. When the Realsense camera is connected to the machine its data should be available in Realsense-Viewer.
 
+In order to test the scripts, first the python virtual environment should be activated, because all the necessary python packages are installed inside
+the virtual environment.
+
+To activate the virtual environment call:
+```bash
+source ../environments/obstacle_detection/bin/activate
+```
+
 After these verify that `obstacle_detection.py` runs without errors by calling:
 ```bash
 python obstacle_detection.py
@@ -58,6 +66,14 @@ from the command line inside the repository.
 
 
 ## Usage
+
+In order to run the scripts, first the python virtual environment should be activated, because all the necessary python packages are installed inside
+the virtual environment.
+
+To activate the virtual environment call:
+```bash
+source ../environments/obstacle_detection/bin/activate
+```
 
 ### Obstacle Detection
 
