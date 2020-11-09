@@ -27,6 +27,8 @@ import Msg
 import flatbuffers
 from time import sleep
 import argparse
+import fleet_manager_client
+from fleet_manager_client.rest import ApiException
 
 
 ## Parse command line
@@ -44,6 +46,14 @@ def parse_args():
         '-filename', dest='filename',
         help='Name of the config file. Default is: cam_robot_transform_config.yaml',
         default='cam_robot_transform_config.yaml', type=str)
+    parser.add_argument(
+        '-fleet_manager', dest='fleet_manager',
+        help='IP and port on which the fleet-manager expects the results of the obstacle detection',
+        default='127.0.0.1:8080', type=str)
+    parser.add_argument(
+        '-robot_id', dest='robot_id',
+        help='ID of the robot, the obstacle detection instance is running on (This ID is reported to the fleet manager)',
+        default=0, type=int)
 
     args = parser.parse_args()
     return args
@@ -82,6 +92,12 @@ socket_p.bind("tcp://*:5555")
 #  This function is used for running the obstacle detection
 #  @param args Object for passing the command line options
 def run_obstacle_detection(args):
+
+    config = fleet_manager_client.Configuration()
+    config.host = args.fleet_manager
+
+    # create an instance of the API class
+    api_instance = fleet_manager_client.ResultApi(fleet_manager_client.ApiClient(config))
 
     # Make an instance of the network
     net = network.Network()
@@ -320,10 +336,17 @@ def run_obstacle_detection(args):
                     print("Bounding box:\n({}\t{}\t{})\n({}\t{}\t{})".format( \
                             bb.get('x1'), bb.get('y1'), bb.get('z1'), \
                             bb.get('x2'), bb.get('y2'), bb.get('z2')))
+
+                obstacle_x_in_robot_frame = blob_avg_coords[0]
+                obstacle_y_in_robot_frame = blob_avg_coords[1]
+
             else:
                 bb = {'x1': math.nan, 'y1': math.nan, 'z1': math.nan,\
                       'x2': math.nan, 'y2': math.nan, 'z2': math.nan}
-                blob_send = [0, 0, 0, 0]  
+                blob_send = [[0, 0, 0], 0] 
+                obstacle_x_in_robot_frame = math.nan
+                obstacle_y_in_robot_frame = math.nan
+                blob_width = 0
 
             # Calculate props of the moving object
             eh, ew, ed = egomotion_filtered_flow.shape
@@ -356,6 +379,39 @@ def run_obstacle_detection(args):
                 print("Result depth std:\t{} [m]".format(depth_std_z))
 
 
+            if not obstacle_x_in_robot_frame == math.nan and not obstacle_y_in_robot_frame == math.nan:
+                obstacle_x_in_world = obstacle_x_in_robot_frame*math.cos(phi_sensorfusion) - obstacle_y_in_robot_frame*math.sin(phi_sensorfusion) + x_sensorfusion
+                obstacle_y_in_world = obstacle_x_in_robot_frame*math.sin(phi_sensorfusion) + obstacle_y_in_robot_frame*math.cos(phi_sensorfusion) + y_sensorfusion
+                
+                obstacle_vx_in_world = velocity_mean_nonzero_elements[0]*math.cos(phi_sensorfusion) - velocity_mean_nonzero_elements[1]*math.sin(phi_sensorfusion)
+                obstacle_vy_in_world = velocity_mean_nonzero_elements[0]*math.sin(phi_sensorfusion) + velocity_mean_nonzero_elements[1]*math.cos(phi_sensorfusion)
+
+
+                # REST API Client send result
+
+                # Create header 
+                header = fleet_manager_client.Header()
+                header.id = args.robot_id  # Robot ID (robot number 0)
+                header.timestamp = int(time.time())  # Unix timestamp
+
+                # Create position (nominal position of the obstacle relative to the world frame (in meters))
+                position = fleet_manager_client.Position()
+                position.x = obstacle_x_in_world  # x component of position in meters [m]
+                position.y = obstacle_y_in_world  # y component of position in meters [m]
+
+                # Create velocity (nominal velocity of the obstacle relative to the world frame (in meters per scond))
+                velocity = fleet_manager_client.Velocity()
+                velocity.x = obstacle_vx_in_world  # x component of velocity in meters per scond [m/s]
+                velocity.y = obstacle_vy_in_world  # y component of velocity in meters per scond [m/s]
+
+                # Combine them into the result object:
+                body = fleet_manager_client.Result(header, position, blob_width, velocity) # Result | Properties of the detected obstacle
+
+                try:
+                    # Send the result of obstacle detection to the fleet manager
+                    api_instance.send_result(body)
+                except ApiException as e:
+                    print("Exception when calling ResultApi->send_result: %s\n" % e)
 
             #######################################################
             # ZMQ publish blob

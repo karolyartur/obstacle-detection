@@ -39,6 +39,7 @@ source obstacle_detection/bin/activate
 cd ../obstacle-detection
 pip install wheel
 pip install -r requirements.txt
+pip install git+https://github.com/karolyartur/fleet-manager-client.git
 
 # Install tkinter for ZMQ
 sudo apt-get install python3-tk

@@ -103,6 +103,13 @@ then intermediate results are printed to the command line and the frames, the pr
 
 With the `-filename` argument the name of the required config file can be chosen. This config file should contain the transformation between the robot's and the camera's coordinate frames.
 
+The arguments `-fleet_manager` and `-robot_id` can be used to customize the communication with the fleet manager's REST API endpoint:
+
+ - `-fleet_manager`: Sting containing the IP and the port on which the fleet manager's REAST API endpoint is implemented (default is '127.0.0.1:8080)
+ - `-robot_id`: Integer ID for the robot, on which the obstacle detection process is running (default is 0)
+
+In case of a multi-robot setup make sure that the robots have unique IDs!
+
 ### ZMQ Clients
 
 With calling 
