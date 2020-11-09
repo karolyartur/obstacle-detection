@@ -33,7 +33,7 @@ def parse_args():
 ## Record videos
 #
 #  This function is used for recording videos
-#  @param args Object for passing the options. Use the VID class of ginop.utils module.
+#  @param args Object for passing the options. Use the VID class of the utils module.
 def record_videos(args):
 
     vidcap = cv2.VideoCapture(0)

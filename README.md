@@ -75,6 +75,8 @@ To activate the virtual environment call:
 source ../environments/obstacle_detection/bin/activate
 ```
 
+For the egomotion filtering **the transformation between the camera and the robot frames is necessary**. This transformation **must be defined** in the `cam_robot_transform_config.yaml` file. Otherwise, the obstacle detection will not work!
+
 ### Obstacle Detection
 
 The obstacle detection can be used by running

@@ -1,3 +1,9 @@
+## @package obstacle-detection
+#  Test sensor-fusion ZMQ server
+#
+#  This module can be used to test the connection to the sensor-fusion ZMQ server by making a client that subscribes to the sensor-fusion result topic
+
+
 import zmq
 import numpy as np
 import matplotlib.pyplot as plt

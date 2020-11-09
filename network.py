@@ -10,8 +10,14 @@ import os
 import tensorflow.contrib.slim as slim
 import models.inception
 
+## Network class
+#
+#  Instances of this class can use the OFSNet definition to make predictions
 class Network():
 
+    ## Constructor
+    #
+    #  Class constructor for the Network class
     def __init__(self):
         tf.reset_default_graph()
         config = tf.ConfigProto(
@@ -34,6 +40,10 @@ class Network():
         self._inputs = graph.get_tensor_by_name('Inputs:0')
         avg_valid = graph.get_tensor_by_name('avg_valid:0')
 
+    ## Predict
+    #
+    #  Use this member function of Network instances to make predictions with the OFSNet
+    #  @param data Input data for the OFSNet
     def predict(self, data):
         p,m = self._sess.run([self._pred,self._mask], feed_dict={self._inputs: [data]})
         return (p,m)

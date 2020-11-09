@@ -1,3 +1,7 @@
+## @package obstacke-detection
+#  obstacle-detection
+#
+#  This module can be used to run the obstacle detection prcess
 
 import pyrealsense2 as rs
 import numpy as np
@@ -24,6 +28,10 @@ import flatbuffers
 from time import sleep
 import argparse
 
+
+## Parse command line
+#
+#  This function parses the command line arguments
 def parse_args():
 
     parser = argparse.ArgumentParser(
@@ -69,7 +77,10 @@ socket_p.bind("tcp://*:5555")
 
 ###########################################################
        
-    
+## Obstacle detection
+#
+#  This function is used for running the obstacle detection
+#  @param args Object for passing the command line options
 def run_obstacle_detection(args):
 
     # Make an instance of the network

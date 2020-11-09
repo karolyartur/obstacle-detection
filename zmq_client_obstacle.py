@@ -1,3 +1,8 @@
+## @package obstacle-detection
+#  Test obstacle-detection ZMQ server
+#
+#  This module can be used to test the connection to the obstacle-detection ZMQ server by making a client that subscribes to the obstacle-detection result topic
+
 import zmq
 import numpy as np
 import matplotlib.pyplot as plt

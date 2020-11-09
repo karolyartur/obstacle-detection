@@ -44,7 +44,10 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-
+## Main function
+#
+#  This function is used for recording data with the Realsense camera
+#  @param args Object for passing command line options to the function.
 def main(args):
 
     with open('data.txt', 'w') as f:

@@ -10,6 +10,10 @@ import cv2 as cv
 import network
 import utils
 
+
+## Run test
+#
+#  This function is used for running the test with the trained network
 def run_test():
 
     # Make an instance of the network
