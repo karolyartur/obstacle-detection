@@ -379,7 +379,7 @@ def run_obstacle_detection(args):
                 print("Result depth std:\t{} [m]".format(depth_std_z))
 
 
-            if not obstacle_x_in_robot_frame == math.nan and not obstacle_y_in_robot_frame == math.nan:
+            if not math.isnan(obstacle_x_in_robot_frame) and not math.isnan(obstacle_y_in_robot_frame) and not math.isnan(velocity_mean_nonzero_elements):
                 obstacle_x_in_world = obstacle_x_in_robot_frame*math.cos(phi_sensorfusion) - obstacle_y_in_robot_frame*math.sin(phi_sensorfusion) + x_sensorfusion
                 obstacle_y_in_world = obstacle_x_in_robot_frame*math.sin(phi_sensorfusion) + obstacle_y_in_robot_frame*math.cos(phi_sensorfusion) + y_sensorfusion
                 
