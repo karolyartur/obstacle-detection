@@ -1,4 +1,4 @@
-## @package obstacke-detection
+## @package obstacle-detection
 #  Realsense Data Collection
 #
 #  This module can be used to save realsense data to a bag file and to load

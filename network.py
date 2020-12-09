@@ -1,4 +1,4 @@
-## @package obstacke-detection
+## @package obstacle-detection
 #  Neural network
 #
 #  This module can be used to load and run the trained networks

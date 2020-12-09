@@ -1,5 +1,5 @@
 ## 
-#  @package egomotion_filter_module
+## @package obstacle-detection
 #  Functions for optical flow egomotion filtering support.
 
 

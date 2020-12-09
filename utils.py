@@ -1,4 +1,4 @@
-## @package obstacle_detection
+## @package obstacle-detection
 #  Util module
 #
 #  This module contains utility functions for the package.

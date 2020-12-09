@@ -1,5 +1,5 @@
 ## 
-#  @package realsense_input_module
+## @package obstacle-detection
 #  Getting inputs from Intel Realsense SR300 and T265.
 #  Contains stream enabling, getting frames and pose data.
 

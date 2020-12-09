@@ -1,4 +1,4 @@
-## @package obstacke-detection
+## @package obstacle-detection
 #  obstacle-detection
 #
 #  This module can be used to run the obstacle detection prcess

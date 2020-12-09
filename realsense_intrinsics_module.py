@@ -1,5 +1,5 @@
 ## 
-#  @package realsense_intrinsics_module
+## @package obstacle-detection
 #  Functions for intrisics support
 
 
