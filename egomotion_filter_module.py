@@ -445,6 +445,9 @@ def calc_mean_velocity(egomotion_filtered_flow):
               egomotion_filtered_flow[i,j,2]!=0):
                 velocity_nonzero_elements.append(egomotion_filtered_flow[i,j,:])
 
+    if not velocity_nonzero_elements:
+        velocity_nonzero_elements = [[0.0, 0.0, 0.0]]
+
     velocity_mean_nonzero_elements = np.mean(velocity_nonzero_elements,0)
     velocity_std_nonzero_elements = np.std(velocity_nonzero_elements,0)
     return velocity_mean_nonzero_elements, velocity_std_nonzero_elements
